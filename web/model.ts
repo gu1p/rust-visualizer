@@ -1,4 +1,5 @@
 import { visualizer } from './gen/graph.js';
+import { layeredGraph } from './progressive';
 
 export type Node = visualizer.Node;
 export type Edge = visualizer.Edge;
@@ -10,13 +11,15 @@ export const labels: Record<string, string> = {
   call: 'chamada', await: 'async', try: 'erro · ?', loop: 'laço', return: 'retorno',
   deferred: 'adiado', statement: 'instrução', expression: 'expressão', merge: 'junção',
   break: 'break', continue: 'continue', macro: 'macro',
+  folder: 'pasta', file: 'arquivo',
 };
 
 export const state = {
   graph: new visualizer.Graph(), nodes: [] as Node[], edges: [] as Edge[],
   byId: new Map<string, Node>(), session: new visualizer.Session(),
-  view: 'architecture' as View, selected: '', focus: '', scope: '', depth: 1,
+  view: 'architecture' as View, selected: '', focus: '', scope: '',
   highlights: new Set<string>(), offline: Boolean(document.getElementById('graph-data')),
+  layers: new Map<string, { expanded: Set<string>; revealed: Set<string> }>(),
 };
 
 export function $(id: string): HTMLElement {
@@ -44,41 +47,21 @@ export function setGraph(graph: visualizer.Graph): void {
   state.nodes = graph.nodes.map(n => new visualizer.Node(n));
   state.edges = graph.edges.map(e => new visualizer.Edge(e));
   state.byId = new Map(state.nodes.map(n => [n.id, n]));
+  state.layers.clear();
+}
+
+export function contextKey(): string {
+  return `${state.view}:${state.view === 'flow' || state.view === 'calls' ? state.focus : state.scope}`;
+}
+
+export function currentLayer(): { expanded: Set<string>; revealed: Set<string> } {
+  const key = contextKey();
+  if (!state.layers.has(key)) state.layers.set(key, { expanded: new Set(), revealed: new Set() });
+  return state.layers.get(key)!;
 }
 
 export function graphModel(): { nodes: Node[]; edges: Edge[]; clipped: boolean } {
-  let nodes: Node[];
-  if (state.view === 'flow') nodes = state.nodes.filter(n => n.parent === state.focus);
-  else if (state.view === 'types') nodes = state.nodes.filter(n => ['struct', 'enum', 'trait'].includes(n.kind));
-  else if (state.view === 'calls') nodes = callNeighborhood();
-  else nodes = architecture();
-  const highlighted = state.nodes.filter(n => state.highlights.has(n.id));
-  if (state.view !== 'flow') nodes = [...new Map([...nodes, ...highlighted].map(n => [n.id, n])).values()];
-  const clipped = nodes.length > 160;
-  nodes = nodes.slice(0, 160);
-  const ids = new Set(nodes.map(n => n.id));
-  const kinds = state.view === 'flow' ? ['flow'] : state.view === 'calls' ? ['calls'] : state.view === 'types' ? ['implements', 'uses'] : ['contains', 'depends'];
-  const edges = state.edges.filter(e => ids.has(e.from) && ids.has(e.to) && kinds.includes(e.kind));
-  return { nodes, edges, clipped };
-}
-
-function architecture(): Node[] {
-  if (state.scope) return state.nodes.filter(n => n.parent === state.scope && entityKinds.has(n.kind));
-  const crates = state.nodes.filter(n => n.kind === 'crate');
-  if (crates.length) return crates;
-  return state.nodes.filter(n => entityKinds.has(n.kind) && !n.parent);
-}
-
-function callNeighborhood(): Node[] {
-  const focus = owner(state.byId.get(state.selected))?.id || state.focus;
-  let ids = new Set(focus ? [focus] : state.nodes.filter(n => n.kind === 'function' && n.entryPoint).map(n => n.id));
-  if (!ids.size) ids = new Set(state.nodes.filter(n => n.kind === 'function').slice(0, 30).map(n => n.id));
-  for (let i = 0; i < state.depth; i++) {
-    const next = new Set(ids);
-    for (const edge of state.edges) {
-      if (edge.kind === 'calls' && (ids.has(edge.from) || ids.has(edge.to))) { next.add(edge.from); next.add(edge.to); }
-    }
-    ids = next;
-  }
-  return state.nodes.filter(n => ids.has(n.id));
+  const layer = currentLayer();
+  return layeredGraph(state.nodes, state.edges, { ...state, ...layer,
+    revealed: new Set([...layer.revealed, ...state.highlights]) });
 }

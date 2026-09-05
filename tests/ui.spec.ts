@@ -1,12 +1,17 @@
 import { test, expect } from '@playwright/test';
 
+// The requested file-tree default replaces the old always-visible symbol list.
+
 test('explore from a symbol to its branches and source', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'rust-visualizer', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Conversar com IA' })).toBeEnabled();
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Buscar símbolos' }).fill('process');
   await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
   await page.getByRole('tab', { name: 'Fluxo' }).click();
+  // Flow now reveals only the next layer on explicit request.
+  await page.getByRole('button', { name: 'Expandir próxima camada' }).click();
   await expect(page.getByRole('region', { name: 'Grafo interativo' })).toContainText('amount < 0');
   await expect(page.getByRole('region', { name: 'Código-fonte' })).toContainText('save(total).await?');
   await expect(page.getByRole('button', { name: 'Ajustar grafo' })).toBeEnabled();
@@ -27,6 +32,7 @@ test('keyboard opens accessible AI dialog and restores focus', async ({ page }) 
 
 test('search empty state is explicit and recoverable', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Buscar símbolos' }).fill('does-not-exist');
   await expect(page.getByText('Nenhum símbolo encontrado.')).toBeVisible();
   await page.getByRole('searchbox', { name: 'Buscar símbolos' }).fill('main');
@@ -35,6 +41,7 @@ test('search empty state is explicit and recoverable', async ({ page }) => {
 
 test('flow opens at a readable scale and still offers a full-graph fit', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
   await page.getByRole('tab', { name: 'Fluxo' }).click();
   const entry = page.getByRole('button', { name: 'Selecionar Entrada', exact: true });
@@ -45,6 +52,7 @@ test('flow opens at a readable scale and still offers a full-graph fit', async (
 
 test('a flow walkthrough offers branch choices rather than inventing an execution', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
   await page.getByRole('button', { name: 'Percorrer fluxo' }).click();
   for (let i = 0; i < 8; i++) {
@@ -67,5 +75,6 @@ test('loading and graph errors are visible and retry is usable', async ({ page }
   await expect(page.getByRole('alert')).toContainText('Não foi possível carregar');
   await page.unroute('**/api/graph');
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Abrir main', exact: true })).toBeVisible();
 });

@@ -14,8 +14,12 @@ test('one exported HTML supports graph navigation offline with zero network asse
     page.on('request', request => { if (!request.url().startsWith('file:')) requests.push(request.url()); });
     await context.setOffline(true);
     await page.goto(pathToFileURL(output).href);
+    await expect(page.getByRole('tree', { name: 'Arquivos do repositório' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
     await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
     await page.getByRole('tab', { name: 'Fluxo' }).click();
+    // Offline exports retain deliberate, one-layer-at-a-time exploration too.
+    for (let i = 0; i < 8; i++) await page.getByRole('button', { name: 'Expandir próxima camada' }).click();
     await expect(page.getByRole('region', { name: 'Grafo interativo' })).toContainText('propagar erro');
     await page.keyboard.press('ControlOrMeta+k');
     await expect(page.getByText('Este HTML funciona offline.', { exact: false })).toBeVisible();
@@ -27,6 +31,8 @@ test('one exported HTML supports graph navigation offline with zero network asse
 test('mobile layout retains symbol, graph, source, and dialog access', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await expect(page.getByRole('tree', { name: 'Arquivos do repositório' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
   await page.getByRole('tab', { name: 'Fluxo' }).click();
   await expect(page.getByRole('region', { name: 'Código-fonte' })).toContainText('save(total).await?');

@@ -37,7 +37,7 @@ function startFlow(): void {
 function show(): void {
   const step = steps[index]; if (!step) return;
   const node = state.byId.get(step.nodeId); if (!node) return;
-  const isFlow = !['function', 'crate', 'struct', 'enum', 'trait', 'module'].includes(node.kind);
+  const isFlow = Boolean(owner(node)) && node.kind !== 'function';
   select(node.id, isFlow ? 'flow' : node.kind === 'function' ? 'calls' : 'architecture');
   $('tour').hidden = false;
   $('tour-label').textContent = mode === 'ai' ? 'PERCURSO DA IA · CONFIRA NO CÓDIGO' : 'CAMINHO POSSÍVEL · ESCOLHA AS CONDIÇÕES';

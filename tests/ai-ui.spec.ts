@@ -29,6 +29,7 @@ test('AI answers as text, graph tour and playable synthesized speech', async ({ 
     }) });
   });
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Símbolos', exact: true }).click();
   await page.getByRole('button', { name: 'Abrir process', exact: true }).click();
   await page.getByRole('button', { name: 'Conversar com IA' }).click();
   await page.getByRole('textbox', { name: 'Sua pergunta' }).fill('Explique o fluxo');

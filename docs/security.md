@@ -1,8 +1,10 @@
 # Data and security model
 
 The scanner reads Rust sources and Cargo manifests. It never runs Cargo, build scripts,
-repository executables, or macros. Hidden/generated directories and symlinks are skipped,
-and ignore files are respected. It is not a secret detector; Rust source can itself contain
+repository executables, or macros. Generated directories and symlinks are skipped,
+and ignore files are respected. The tree lists files other than visible Rust sources and
+Cargo manifests as path metadata only, bounded to 20,000 entries; their bodies are not read. Hidden Rust
+files remain outside source analysis. It is not a secret detector; Rust source can itself contain
 sensitive strings. An exported HTML includes the scanned source excerpts: share it only
 where you would share that source.
 

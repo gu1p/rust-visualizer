@@ -15,13 +15,21 @@
     <button id="open-ai" class="primary" aria-label="Conversar com IA"><span aria-hidden="true">✦</span> Conversar com IA <kbd>⌘ / Ctrl K</kbd></button>
   </header>
   <main class="workspace">
-    <aside class="explorer" aria-label="Explorador de símbolos">
+    <aside class="explorer" aria-label="Explorador do repositório">
       <div class="section-label">EXPLORADOR <span id="symbol-count" class="muted"></span></div>
+      <div class="explorer-tabs" role="tablist" aria-label="Explorar repositório"><button id="files-tab" role="tab" aria-selected="true" aria-controls="files-panel">Arquivos</button><button id="symbols-tab" role="tab" aria-selected="false" aria-controls="symbols-panel">Símbolos</button></div>
+      <section id="files-panel" class="explorer-panel" role="tabpanel" aria-labelledby="files-tab">
+        <label class="search-wrap"><span aria-hidden="true">⌕</span><input id="tree-search" type="search" aria-label="Buscar arquivos" placeholder="Buscar arquivo ou pasta…" autocomplete="off"><kbd>/</kbd></label>
+        <div class="tree-toolbar"><span>REPOSITÓRIO</span><button id="collapse-tree" class="quiet" aria-label="Recolher árvore de arquivos" title="Recolher pastas">⊟</button></div>
+        <ul id="file-tree" role="tree" aria-label="Arquivos do repositório"></ul><p id="tree-empty" class="empty-search" hidden>Nenhum arquivo disponível nesta análise.</p>
+      </section>
+      <section id="symbols-panel" class="explorer-panel" role="tabpanel" aria-labelledby="symbols-tab" hidden>
       <label class="search-wrap"><span aria-hidden="true">⌕</span><input id="search" type="search" aria-label="Buscar símbolos" placeholder="Buscar símbolo, arquivo…" autocomplete="off"><kbd>/</kbd></label>
       <label class="filter-label">Escopo<select id="crate-filter" aria-label="Filtrar por crate"><option value="">Todo o repositório</option></select></label>
       <label class="entry-filter"><input type="checkbox" id="entries"> Somente pontos de entrada</label>
       <div id="symbol-list" class="symbol-list"></div>
       <button id="more-symbols" class="quiet" hidden>Mostrar mais símbolos</button>
+      </section>
       <div class="explorer-footer"><span class="live-dot"></span><span>Leitura local do código</span><small id="file-count"></small></div>
     </aside>
     <section class="canvas-column" aria-label="Visualização do código">
@@ -35,18 +43,19 @@
         <button id="home" class="quiet" aria-label="Visão geral">↖ Visão geral</button>
       </div>
       <div class="graph-heading"><div><div class="section-label" id="view-eyebrow">MAPA DO REPOSITÓRIO</div><h2 id="graph-title">Uma visão do todo.</h2><p id="graph-subtitle">Explore as partes. Siga o comportamento.</p></div><span class="static-badge">Análise estática</span></div>
+      <nav id="breadcrumbs" class="breadcrumbs" aria-label="Caminho no repositório"></nav>
       <div id="load-status" role="status">Carregando o grafo…</div>
       <div id="load-error" role="alert" hidden><p>Não foi possível carregar o grafo.</p><button id="retry">Tentar novamente</button></div>
       <div id="graph" class="graph" role="region" aria-label="Grafo interativo" tabindex="0">
         <div id="scene" class="scene"><svg id="edges" aria-hidden="true"></svg><div id="nodes"></div></div>
         <div id="graph-empty" class="graph-empty" hidden><span aria-hidden="true">⌁</span><p>Selecione uma função para explorar seu fluxo.</p></div>
       </div>
-      <div class="graph-tools"><span id="graph-count" class="muted"></span><div><button id="expand" aria-label="Expandir vizinhança">Expandir</button><button id="zoom-out" aria-label="Diminuir zoom">−</button><button id="fit" aria-label="Ajustar grafo">Ajustar</button><button id="zoom-in" aria-label="Aumentar zoom">+</button></div></div>
+      <div class="graph-tools"><span id="graph-count" class="muted"></span><div><button id="expand" aria-label="Expandir próxima camada">+ Camada</button><button id="collapse" aria-label="Recolher tudo">Recolher</button><button id="zoom-out" aria-label="Diminuir zoom">−</button><button id="fit" aria-label="Ajustar grafo">Ajustar</button><button id="zoom-in" aria-label="Aumentar zoom">+</button></div></div>
       <section id="tour" class="tour" aria-label="Percurso no grafo" hidden>
         <div class="tour-main"><span class="tour-icon" aria-hidden="true">↳</span><div><span id="tour-label" class="section-label">PERCURSO</span><p id="tour-text"></p><div id="tour-choices"></div></div></div>
         <div class="tour-actions"><span id="tour-position"></span><button id="previous-step" aria-label="Passo anterior">←</button><button id="next-step" aria-label="Próximo passo">→</button><button id="stop-tour" aria-label="Encerrar percurso">×</button></div>
       </section>
-      <footer class="canvas-footer"><span><i class="legend branch"></i>decisão</span><span><i class="legend await"></i>async</span><span><i class="legend call"></i>chamada</span><span><i class="legend exit"></i>saída / erro</span><span class="muted">Arraste para mover · rolagem para zoom</span></footer>
+      <footer class="canvas-footer"><span><i class="legend branch"></i>decisão</span><span><i class="legend await"></i>async</span><span><i class="legend call"></i>chamada</span><span><i class="legend exit"></i>saída / erro</span><span class="muted">Arraste um nó para organizar · fundo para mover · + para revelar</span></footer>
     </section>
     <aside class="inspector" aria-label="Detalhes do símbolo">
       <div class="section-label">INSPECIONAR <span class="muted">↗</span></div>
