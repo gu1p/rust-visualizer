@@ -51,18 +51,32 @@ Restart or export again after changing the source; snapshots do not watch files 
 
 ## Explore the program
 
-- **Architecture:** drill into crates and inline modules; inspect package dependencies.
-- **Calls:** explore callers and callees around a function, expanding its neighborhood.
+- **Repository tree:** the default sidebar shows crates, folders, Rust sources, documentation,
+  configuration, and other non-ignored files with colorful, embedded SVG icons. Folders start
+  collapsed; arrow keys navigate the tree. Search reveals matching paths without losing your
+  expansion state. Select a file to scope the graph to its immediate declarations. The
+  **Símbolos** tab keeps symbol search and entry-point/crate filters available.
+- **Architecture:** begin at the repository root. Expand folders, crates, files, and inline
+  modules one layer at a time; inspect package dependencies as their crates become visible.
+- **Calls:** begin at one function, then explicitly reveal its callers and callees.
 - **Types:** inspect structs, enums, traits, implementations, and simple field references.
 - **Flow:** examine evaluation order, conditions, match arms, loops, return paths, `?`,
   `.await`, and deferred closure/async boundaries.
 - **Source:** select a node to inspect its code and highlighted source lines.
 - **Walkthrough:** choose branches in a possible path, with previous/next navigation.
 
+Selecting a graph card only inspects it: it does not expand or replace your graph.
+Use **+** on an individual card, **+ Camada** for the next visible layer, and **Recolher**
+to collapse. Flow starts at **Entrada**, not the entire function. Expansion state is kept
+separately for each view and scope. Breadcrumbs let you return to containing folders.
+
 Search names, lexical paths, and files. Filter by crate or entry-point candidates.
 Press `/` for search, **Cmd+K / Ctrl+K** for the AI dialog, and Escape to close it.
 Graph nodes are keyboard-accessible buttons. Focus the graph to pan with arrow keys,
-zoom with `+` / `-`, or fit with `0`. Pointer dragging and scroll zoom are supported.
+zoom with `+` / `-`, or fit with `0`. Drag individual nodes to arrange them; their edges
+follow and their positions survive expansion and view switches. **Shift+arrow keys** move
+the focused node. Drag the empty canvas to pan. Scroll zoom is supported. Layout changes
+last for the current browser session; they are not written back to the repository.
 
 ## Ask AI to explain and show
 
@@ -126,6 +140,8 @@ Module paths are inferred from conventional file layout and inline declarations.
 packages, complex generic types, and dynamic dispatch are not fully resolved. Scanning
 honors ignore rules, skips symlinks and generated directories, and reports parse errors.
 Files are limited to 2 MiB each and source input to 64 MiB per scan.
+The filesystem tree is limited to 20,000 entries. Files other than visible Rust sources
+and Cargo manifests are listed as metadata only; their contents are not read for analysis.
 
 For compiler-backed semantics, runtime traces, and richer retrieval, see the extension
 points in [Architecture](docs/architecture.md). AI explanations are hypotheses grounded

@@ -1,26 +1,34 @@
-import { $, state, owner, setGraph, type View } from './model';
+import { $, state, owner, setGraph, currentLayer, button, type View } from './model';
 import { visualizer } from './gen/graph.js';
-import { initializeGraph, renderGraph, updateSelection } from './graph';
+import { initializeGraph, renderGraph, updateSelection, fit } from './graph';
 import { initializeExplorer, fillCrates, renderExplorer, renderInspector } from './explorer';
 import { initializeChat, openChat, refreshChat } from './chat';
 import { initializeTour, stopTour } from './tour';
 
-function select(id: string, view?: View): void {
+function select(id: string, view?: View, navigate = true): void {
   const node = state.byId.get(id); if (!node) return;
-  const priorFocus = state.focus;
   state.selected = id;
   const fn = owner(node);
-  if (fn) state.focus = fn.id;
-  if (node.kind === 'crate' || node.kind === 'module') { state.scope = node.id; state.view = 'architecture'; }
-  if (view) state.view = view;
-  if (!view && node.kind === 'function' && state.view === 'architecture') state.view = 'calls';
+  if (navigate) {
+    if (fn) state.focus = fn.id;
+    if (['crate', 'module', 'folder', 'file'].includes(node.kind)) {
+      state.scope = node.id; state.view = 'architecture';
+      if (node.kind === 'file') currentLayer().expanded.add(node.id);
+    }
+    if (view) state.view = view;
+    if (!view && node.kind === 'function' && ['architecture', 'types'].includes(state.view)) state.view = 'calls';
+    if (!view && ['struct', 'enum', 'trait'].includes(node.kind)) { state.scope = id; state.view = 'types'; }
+    if (view) currentLayer().revealed.add(id);
+  }
   renderInspector(); renderExplorer(); headings();
-  if (view || priorFocus !== state.focus || ['crate', 'module'].includes(node.kind)) renderGraph();
+  if (navigate) renderGraph();
   else updateSelection();
 }
 
 function changeView(view: View): void {
-  state.view = view; state.depth = 1;
+  state.view = view;
+  const selected = owner(state.byId.get(state.selected));
+  if (selected && (view === 'flow' || view === 'calls')) state.focus = selected.id;
   if (view === 'flow' && !state.focus) {
     const entry = state.nodes.find(n => n.kind === 'function' && n.entryPoint);
     if (entry) { state.focus = entry.id; state.selected = entry.id; }
@@ -33,13 +41,17 @@ function headings(): void {
   const focus = state.byId.get(state.focus);
   const scope = state.byId.get(state.scope);
   const descriptions = {
-    architecture: ['MAPA DO REPOSITÓRIO', scope?.name || 'Uma visão do todo.', 'Abra uma crate ou módulo para explorar suas partes.'],
+    architecture: ['MAPA DO REPOSITÓRIO', scope?.name || 'Explore uma camada por vez.', 'Selecione para inspecionar. Use + no nó para revelar apenas suas partes imediatas.'],
     calls: ['RELAÇÕES ENTRE FUNÇÕES', focus?.name || 'De onde tudo começa.', 'Chamadas identificadas por caminhos lexicais. Abra o fluxo para ver chamadas não resolvidas.'],
     types: ['ESTRUTURAS E CONTRATOS', 'A forma dos dados.', 'Tipos, implementações de traits e referências em campos.'],
-    flow: ['COMPORTAMENTO DA FUNÇÃO', focus?.name || 'Siga o programa.', 'Decisões, chamadas, laços e saídas. Escolha um nó para ver a fonte.'],
+    flow: ['COMPORTAMENTO DA FUNÇÃO', focus?.name || 'Siga o programa.', 'Comece na entrada. Revele os próximos passos com + Camada ou expanda um nó.'],
   }[state.view];
   $('view-eyebrow').textContent = descriptions[0]; $('graph-title').textContent = descriptions[1]; $('graph-subtitle').textContent = descriptions[2];
-  $('expand').hidden = state.view !== 'calls';
+  const crumbs = $('breadcrumbs'); crumbs.replaceChildren(button('Repositório', () => $('home').click()));
+  let cursor = state.byId.get(state.scope);
+  const trail = []; const seen = new Set<string>();
+  while (cursor && !seen.has(cursor.id)) { seen.add(cursor.id); trail.unshift(cursor); cursor = state.byId.get(cursor.parent); }
+  for (const node of trail) crumbs.append(button(node.name, () => select(node.id)));
 }
 
 async function load(): Promise<void> {
@@ -58,7 +70,7 @@ async function load(): Promise<void> {
     }
     setGraph(visualizer.Graph.decode(bytes));
     $('repo-name').textContent = state.graph.name;
-    $('file-count').textContent = `${state.graph.fileCount} arquivos Rust`;
+    $('file-count').textContent = `${state.nodes.filter(n => n.kind === 'file').length} arquivos · ${state.graph.fileCount} Rust analisados`;
     $('diagnostics').replaceChildren();
     for (const diagnostic of state.graph.diagnostics.slice(0, 30)) {
       const item = document.createElement('li'); item.textContent = diagnostic; $('diagnostics').append(item);
@@ -70,16 +82,16 @@ async function load(): Promise<void> {
   }
 }
 
-initializeGraph(select); initializeExplorer(select); initializeChat(); initializeTour(select);
+initializeGraph(id => select(id, undefined, false)); initializeExplorer(select); initializeChat(); initializeTour(select);
 for (const tab of document.querySelectorAll<HTMLButtonElement>('[data-view]')) tab.onclick = () => changeView(tab.dataset.view as View);
 $('show-flow').onclick = () => changeView('flow'); $('show-calls').onclick = () => changeView('calls');
-$('expand').onclick = () => { state.depth = Math.min(state.depth + 1, 8); renderGraph(); };
+$('collapse').onclick = () => { stopTour(); currentLayer().expanded.clear(); currentLayer().revealed.clear(); renderGraph(); fit(); };
 $('retry').onclick = () => void load();
-$('home').onclick = () => { stopTour(); state.scope = ''; state.selected = ''; state.focus = ''; changeView('architecture'); renderExplorer(); };
+$('home').onclick = () => { stopTour(); state.scope = ''; state.selected = ''; state.focus = ''; state.layers.clear(); changeView('architecture'); fit(); renderExplorer(); };
 document.querySelector('.brand')?.addEventListener('click', event => { event.preventDefault(); $('home').click(); });
 document.addEventListener('keydown', event => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openChat(); }
   const editing = (event.target as HTMLElement).matches('input,textarea,select');
-  if (event.key === '/' && !editing && !($('ai-dialog') as HTMLDialogElement).open) { event.preventDefault(); $('search').focus(); }
+  if (event.key === '/' && !editing && !($('ai-dialog') as HTMLDialogElement).open) { event.preventDefault(); $($('files-panel').hidden ? 'search' : 'tree-search').focus(); }
 });
 void load();

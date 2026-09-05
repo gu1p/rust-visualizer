@@ -41,12 +41,13 @@ pub fn analyze(root: &Path) -> Result<Graph> {
         .into();
     graph.diagnostics.extend(diagnostics);
     add_packages(&mut graph, &packages);
+    crate::repository::add_tree(&mut graph, &root, &paths);
     Ok(graph)
 }
 
 fn discover(root: &Path) -> (Vec<PathBuf>, Vec<String>) {
     let walker = ignore::WalkBuilder::new(root)
-        .hidden(true)
+        .hidden(false)
         .follow_links(false)
         .require_git(false)
         .filter_entry(|entry| {
@@ -58,12 +59,12 @@ fn discover(root: &Path) -> (Vec<PathBuf>, Vec<String>) {
     let mut diagnostics = Vec::new();
     for result in walker {
         match result {
-            Ok(entry) if entry.file_type().is_some_and(|t| t.is_file()) => {
-                let path = entry.into_path();
-                if path.extension().is_some_and(|e| e == "rs")
-                    || path.file_name().is_some_and(|n| n == "Cargo.toml")
-                {
-                    paths.push(path);
+            Ok(entry) if entry.file_type().is_some_and(|t| t.is_file() || t.is_dir()) => {
+                paths.push(entry.into_path());
+                if paths.len() >= 20_000 {
+                    diagnostics
+                        .push("Árvore limitada a 20.000 entradas; analise um subdiretório.".into());
+                    break;
                 }
             }
             Err(error) => diagnostics.push(format!("Leitura incompleta: {error}")),
@@ -77,7 +78,7 @@ fn discover(root: &Path) -> (Vec<PathBuf>, Vec<String>) {
 fn packages(root: &Path, paths: &[PathBuf], diagnostics: &mut Vec<String>) -> Vec<Package> {
     paths
         .iter()
-        .filter(|p| p.file_name().is_some_and(|n| n == "Cargo.toml"))
+        .filter(|p| visible_source(root, p) && p.file_name().is_some_and(|n| n == "Cargo.toml"))
         .filter_map(|path| {
             let source = read_bounded(path, diagnostics)?;
             let manifest: toml::Value = match toml::from_str(&source) {
@@ -124,7 +125,7 @@ fn sources(
     let mut files = Vec::new();
     for path in paths
         .iter()
-        .filter(|p| p.extension().is_some_and(|e| e == "rs"))
+        .filter(|p| visible_source(root, p) && p.extension().is_some_and(|e| e == "rs"))
     {
         let Some(source) = read_bounded(path, diagnostics) else {
             continue;
@@ -169,6 +170,15 @@ fn read_bounded(path: &Path, diagnostics: &mut Vec<String>) -> Option<String> {
             None
         }
     }
+}
+
+fn visible_source(root: &Path, path: &Path) -> bool {
+    path.is_file()
+        && path.strip_prefix(root).is_ok_and(|relative| {
+            !relative
+                .components()
+                .any(|part| part.as_os_str().to_string_lossy().starts_with('.'))
+        })
 }
 
 fn module_path(base: &Path, path: &Path, crate_name: &str) -> String {

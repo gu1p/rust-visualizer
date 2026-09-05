@@ -1,21 +1,32 @@
 import { $, state, entityKinds, labels, button, owner, type Node } from './model';
+import { fileIcon } from './icons';
+import { initializeTree, loadTree, renderTree } from './tree';
 
 let select: (id: string) => void;
 let limit = 150;
 
 export function initializeExplorer(onSelect: (id: string) => void): void {
   select = onSelect;
+  initializeTree(onSelect);
+  for (const panel of ['files', 'symbols']) $(`${panel}-tab`).onclick = () => {
+    for (const name of ['files', 'symbols']) {
+      $(`${name}-panel`).hidden = name !== panel;
+      $(`${name}-tab`).setAttribute('aria-selected', String(name === panel));
+    }
+  };
   for (const id of ['search', 'entries', 'crate-filter']) $(id).addEventListener('input', () => { limit = 150; renderExplorer(); });
   $('more-symbols').onclick = () => { limit += 150; renderExplorer(); };
 }
 
 export function fillCrates(): void {
+  loadTree();
   const options = $('crate-filter');
   options.replaceChildren(new Option('Todo o repositório', ''));
   for (const node of state.nodes.filter(n => n.kind === 'crate')) options.append(new Option(node.name, node.id));
 }
 
 export function renderExplorer(): void {
+  renderTree();
   const query = ($('search') as HTMLInputElement).value.toLowerCase();
   const entries = ($('entries') as HTMLInputElement).checked;
   const crate = ($('crate-filter') as HTMLSelectElement).value;
@@ -45,8 +56,7 @@ function belongsTo(node: Node, crate: string): boolean {
 function symbolRow(node: Node): HTMLButtonElement {
   const row = button('', () => select(node.id), `Abrir ${node.name}`);
   row.className = `symbol-row${state.selected === node.id ? ' selected' : ''}`;
-  const icon = document.createElement('span'); icon.className = 'symbol-icon';
-  icon.textContent = node.kind === 'function' ? 'ƒ' : node.kind === 'crate' ? '▣' : '{}';
+  const icon = fileIcon(node);
   const content = document.createElement('span'); content.className = 'symbol-text';
   const name = document.createElement('strong'); name.textContent = node.name;
   const path = document.createElement('small'); path.textContent = node.file;
@@ -69,7 +79,7 @@ export function renderInspector(): void {
   $('follow-call').onclick = () => select(node.targetId);
   renderSource(node, fn);
   const connections = $('connections'); connections.replaceChildren();
-  for (const edge of state.edges.filter(e => e.kind !== 'contains' && (e.from === node.id || e.to === node.id)).slice(0, 30)) {
+  for (const edge of state.edges.filter(e => (e.kind !== 'contains' || ['file', 'folder', 'crate', 'module'].includes(node.kind)) && (e.from === node.id || e.to === node.id)).slice(0, 30)) {
     const target = state.byId.get(edge.from === node.id ? edge.to : edge.from);
     if (target) connections.append(button(`${edge.from === node.id ? '→' : '←'} ${target.name} · ${edge.label || edge.kind}`, () => select(target.id)));
   }

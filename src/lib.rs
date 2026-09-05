@@ -12,6 +12,7 @@ mod export;
 mod flow;
 mod flow_control;
 mod flow_expr;
+mod repository;
 mod resolve;
 mod scan;
 /// Loopback HTTP application serving embedded assets and protobuf APIs.

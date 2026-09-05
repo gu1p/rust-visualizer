@@ -26,6 +26,8 @@ flowchart LR
 ## Boundaries
 
 - `scan.rs` owns filesystem IO, ignore rules, input budgets, and manifest discovery.
+- `repository.rs` attaches directory/file metadata and reparents top-level declarations
+  under their source files, retaining crates at their actual directory locations.
 - `analysis.rs`, `symbols.rs`, `resolve.rs`, and `flow*.rs` are pure source transformations.
 - `proto/graph.proto` defines the snapshot and every Rust/browser message.
 - `ai/context.rs` ranks selected nodes, neighbors, lexical matches, and entry points.
@@ -45,9 +47,13 @@ Relationship resolution is conservative. It matches declaration paths and simple
 it does not infer dynamic receivers. Source locations and unresolved call sites are retained.
 IDs include lexical identity, relative file, and span. Input discovery is sorted for stable exports.
 
-The browser initially displays a small view, then expands around selected symbols. Rendering
-is capped at 160 nodes to protect interaction on large repositories; search and crate filters
-remain available. All JavaScript dependencies are bundled at build time, with no CDN runtime.
+The browser starts with a collapsed graph and a searchable file tree. `progressive.ts` is a
+pure, tested visibility model: only explicitly expanded nodes reveal their immediate neighbors.
+Flow starts at the function entry. AI/manual tours reveal their visited steps without expanding
+the whole function. Rendering is capped at 160 nodes; file scoping, search, and crate filters
+remain available. Node positions and camera preferences are kept in page memory per view/scope.
+Dragging updates connected SVG paths in graph coordinates, independently of canvas panning.
+All JavaScript and colorful SVG icons are embedded, with no CDN runtime.
 
 ## Extension points
 
