@@ -10,7 +10,20 @@ network access, nightly Rust, or build step. Interface language: Brazilian Portu
 
 ## Install
 
-Download the archive for your platform from [Releases](https://github.com/gu1p/rust-visualizer/releases):
+Install or update to the **latest release** with one command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gu1p/rust-visualizer/main/install.sh | sh
+```
+
+The installer detects Linux/macOS and Intel/AMD/ARM64, verifies the release's SHA-256
+checksum, and installs to `~/.local/bin` without `sudo`. Run the same command to update.
+If that directory is not on your `PATH`, add it to your shell configuration or launch
+`~/.local/bin/rust-visualizer` directly. To choose another directory, pass
+`RV_INSTALL_DIR=/your/bin` to `sh`. The installer never edits shell configuration.
+You can [inspect the installer](install.sh) before running it.
+
+For manual installation, download your platform's archive from [Releases](https://github.com/gu1p/rust-visualizer/releases):
 
 | Platform | Archive suffix |
 | --- | --- |
@@ -133,7 +146,7 @@ make build
 ```
 
 `make check` builds the embedded UI, checks Rust formatting and Clippy, runs Rust behavior,
-unit and HTTP integration tests, typechecks TypeScript, tests release versioning, runs
+unit and HTTP integration tests, typechecks TypeScript, tests release versioning and installation, runs
 Playwright UI contracts, and checks file/function limits. Provider tests use local doubles
 and do not need credentials or paid API calls. Follow [AGENTS.md](AGENTS.md) and strict TDD.
 Generated protobuf bindings are committed; `make check-proto-types` detects schema drift.
