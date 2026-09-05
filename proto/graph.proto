@@ -1,0 +1,110 @@
+syntax = "proto3";
+package visualizer;
+
+// A deterministic snapshot of a repository's Rust source.
+message Graph {
+  // Display name of the analyzed directory.
+  string name = 1;
+  // Source entities and control-flow steps.
+  repeated Node nodes = 2;
+  // Directed relationships supported by the source.
+  repeated Edge edges = 3;
+  // Incomplete input and analysis limitations.
+  repeated string diagnostics = 4;
+  // Number of parsed Rust source files.
+  uint32 file_count = 5;
+}
+
+// A source entity or a step inside a function.
+message Node {
+  // Stable identity within this snapshot.
+  string id = 1;
+  // Short display name.
+  string name = 2;
+  // Lexical Rust path.
+  string qualified_name = 3;
+  // Entity or flow category.
+  string kind = 4;
+  // Path relative to the analyzed directory.
+  string file = 5;
+  // First source line, starting at one.
+  uint32 line = 6;
+  // Last source line, inclusive.
+  uint32 end_line = 7;
+  // Exact source excerpt.
+  string source = 8;
+  // Documentation from the source declaration.
+  string documentation = 9;
+  // Explanation or signature.
+  string detail = 10;
+  // Containing entity, if any.
+  string parent = 11;
+  // Whether the declaration is async.
+  bool is_async = 12;
+  // Main, a test, or a public callable candidate.
+  bool entry_point = 13;
+  // Resolved destination of a call step, if known.
+  string target_id = 14;
+}
+
+// A directed source relationship.
+message Edge {
+  // Origin node identity.
+  string from = 1;
+  // Destination node identity.
+  string to = 2;
+  // Relationship: contains, calls, flow, implements, uses, or depends.
+  string kind = 3;
+  // Branch condition or relationship label.
+  string label = 4;
+}
+
+// Browser-safe provider status and local session credential.
+message Session {
+  // Whether AI is configured in this process.
+  bool ai_enabled = 1;
+  // Selected provider label.
+  string provider = 2;
+  // Selected model identifier.
+  string model = 3;
+  // Local anti-CSRF token; never the provider API key.
+  string token = 4;
+}
+
+// A previous conversational turn, bounded by the server.
+message Turn {
+  // User or assistant.
+  string role = 1;
+  // Plain text; never executable markup.
+  string text = 2;
+}
+
+// A question about a graph with optional selected context.
+message ChatRequest {
+  // User's current question.
+  string question = 1;
+  // Source nodes currently selected in the browser.
+  repeated string selected_ids = 2;
+  // Previous conversation turns.
+  repeated Turn history = 3;
+}
+
+// A validated graph tour step.
+message TourStep {
+  // Existing node to focus.
+  string node_id = 1;
+  // Plain-language explanation for this step.
+  string explanation = 2;
+}
+
+// An AI answer, converted from provider JSON at the boundary.
+message ChatResponse {
+  // Plain-text explanation.
+  string answer = 1;
+  // Existing nodes to highlight.
+  repeated string highlights = 2;
+  // Ordered source-linked explanation steps, not an observed execution trace.
+  repeated TourStep steps = 3;
+  // Actionable error, without credentials or upstream response bodies.
+  string error = 4;
+}

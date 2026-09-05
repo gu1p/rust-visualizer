@@ -1,0 +1,133 @@
+name: CI and release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Required checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: make check
+      - run: make check-proto-types
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-traces
+          path: test-results/
+          if-no-files-found: ignore
+
+  version:
+    name: Assign release version
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "version=$(node scripts/release.mjs)" >> "$GITHUB_OUTPUT"
+
+  binaries:
+    name: Build ${{ matrix.target }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: macos-14
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    env:
+      RV_VERSION: ${{ needs.version.outputs.version }}
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Install musl toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: npm ci
+      - run: npm run build
+      - run: cargo build --release --locked --target '${{ matrix.target }}'
+      - name: Smoke test the native executable
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          "target/$TARGET/release/rust-visualizer" --version
+          "target/$TARGET/release/rust-visualizer" export tests/fixtures/journey --output /tmp/ARCHITECTURE.html
+          test -s /tmp/ARCHITECTURE.html
+      - name: Package executable and license
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          mkdir package
+          cp "target/$TARGET/release/rust-visualizer" LICENSE README.md THIRD_PARTY_NOTICES.md package/
+          tar -czf "rust-visualizer-v$RV_VERSION-$TARGET.tar.gz" -C package .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: rust-visualizer-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [version, binaries]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: artifacts
+          merge-multiple: true
+      - name: Generate checksums
+        working-directory: artifacts
+        run: sha256sum ./*.tar.gz > SHA256SUMS
+      - name: Publish immutable version
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; preserving published assets."
+            exit 0
+          fi
+          gh release create "$tag" artifacts/*.tar.gz artifacts/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "rust-visualizer $tag" --generate-notes

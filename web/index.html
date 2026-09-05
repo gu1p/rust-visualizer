@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>rust-visualizer · Explore o código</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Início"><span class="brand-mark" aria-hidden="true">⌘</span><h1>rust-visualizer</h1><span class="version">SOURCE EXPLORER</span></a>
+    <span id="repo-name" class="repo-name">Repositório</span>
+    <button id="open-ai" class="primary" aria-label="Conversar com IA"><span aria-hidden="true">✦</span> Conversar com IA <kbd>⌘ / Ctrl K</kbd></button>
+  </header>
+  <main class="workspace">
+    <aside class="explorer" aria-label="Explorador de símbolos">
+      <div class="section-label">EXPLORADOR <span id="symbol-count" class="muted"></span></div>
+      <label class="search-wrap"><span aria-hidden="true">⌕</span><input id="search" type="search" aria-label="Buscar símbolos" placeholder="Buscar símbolo, arquivo…" autocomplete="off"><kbd>/</kbd></label>
+      <label class="filter-label">Escopo<select id="crate-filter" aria-label="Filtrar por crate"><option value="">Todo o repositório</option></select></label>
+      <label class="entry-filter"><input type="checkbox" id="entries"> Somente pontos de entrada</label>
+      <div id="symbol-list" class="symbol-list"></div>
+      <button id="more-symbols" class="quiet" hidden>Mostrar mais símbolos</button>
+      <div class="explorer-footer"><span class="live-dot"></span><span>Leitura local do código</span><small id="file-count"></small></div>
+    </aside>
+    <section class="canvas-column" aria-label="Visualização do código">
+      <div class="viewbar">
+        <div role="tablist" aria-label="Tipo de grafo">
+          <button role="tab" aria-selected="true" data-view="architecture">Arquitetura</button>
+          <button role="tab" aria-selected="false" data-view="calls">Chamadas</button>
+          <button role="tab" aria-selected="false" data-view="types">Tipos</button>
+          <button role="tab" aria-selected="false" data-view="flow">Fluxo</button>
+        </div>
+        <button id="home" class="quiet" aria-label="Visão geral">↖ Visão geral</button>
+      </div>
+      <div class="graph-heading"><div><div class="section-label" id="view-eyebrow">MAPA DO REPOSITÓRIO</div><h2 id="graph-title">Uma visão do todo.</h2><p id="graph-subtitle">Explore as partes. Siga o comportamento.</p></div><span class="static-badge">Análise estática</span></div>
+      <div id="load-status" role="status">Carregando o grafo…</div>
+      <div id="load-error" role="alert" hidden><p>Não foi possível carregar o grafo.</p><button id="retry">Tentar novamente</button></div>
+      <div id="graph" class="graph" role="region" aria-label="Grafo interativo" tabindex="0">
+        <div id="scene" class="scene"><svg id="edges" aria-hidden="true"></svg><div id="nodes"></div></div>
+        <div id="graph-empty" class="graph-empty" hidden><span aria-hidden="true">⌁</span><p>Selecione uma função para explorar seu fluxo.</p></div>
+      </div>
+      <div class="graph-tools"><span id="graph-count" class="muted"></span><div><button id="expand" aria-label="Expandir vizinhança">Expandir</button><button id="zoom-out" aria-label="Diminuir zoom">−</button><button id="fit" aria-label="Ajustar grafo">Ajustar</button><button id="zoom-in" aria-label="Aumentar zoom">+</button></div></div>
+      <section id="tour" class="tour" aria-label="Percurso no grafo" hidden>
+        <div class="tour-main"><span class="tour-icon" aria-hidden="true">↳</span><div><span id="tour-label" class="section-label">PERCURSO</span><p id="tour-text"></p><div id="tour-choices"></div></div></div>
+        <div class="tour-actions"><span id="tour-position"></span><button id="previous-step" aria-label="Passo anterior">←</button><button id="next-step" aria-label="Próximo passo">→</button><button id="stop-tour" aria-label="Encerrar percurso">×</button></div>
+      </section>
+      <footer class="canvas-footer"><span><i class="legend branch"></i>decisão</span><span><i class="legend await"></i>async</span><span><i class="legend call"></i>chamada</span><span><i class="legend exit"></i>saída / erro</span><span class="muted">Arraste para mover · rolagem para zoom</span></footer>
+    </section>
+    <aside class="inspector" aria-label="Detalhes do símbolo">
+      <div class="section-label">INSPECIONAR <span class="muted">↗</span></div>
+      <div id="inspector-empty"><div class="empty-orbit" aria-hidden="true">{ }</div><h2>O código tem uma história.</h2><p>Escolha um símbolo para ler o código, ver suas conexões e descobrir o próximo passo.</p><div class="hint"><kbd>⌘ / Ctrl K</kbd><span>Peça à IA para explicar um caminho.</span></div></div>
+      <div id="inspector-content" hidden>
+        <span id="detail-kind" class="kind-label"></span><h2 id="detail-name"></h2><p id="detail-file" class="source-location"></p>
+        <p id="detail-docs" class="documentation"></p><p id="detail-note" class="detail-note"></p>
+        <div class="detail-actions"><button id="show-flow">Ver fluxo</button><button id="show-calls">Ver chamadas</button><button id="start-flow">Percorrer fluxo</button><button id="follow-call" hidden>Ir ao destino</button><button id="ask-symbol">✦ Explicar</button></div>
+        <section class="source-section" role="region" aria-label="Código-fonte"><div class="section-label">CÓDIGO-FONTE</div><pre id="source"></pre></section>
+        <section class="connections"><div class="section-label">CONEXÕES</div><div id="connections"></div></section>
+      </div>
+      <details class="limitations"><summary>O que este grafo representa</summary><p>Caminhos possíveis a partir da sintaxe Rust. Não é um rastreamento de execução. Macros não são expandidas, cfg não é avaliado e chamadas por receiver exigem resolução de tipos. Closures e blocos async aparecem como corpos adiados.</p><ul id="diagnostics"></ul></details>
+    </aside>
+  </main>
+  <dialog id="ai-dialog" aria-labelledby="ai-title">
+    <div class="dialog-heading"><span class="ai-symbol" aria-hidden="true">✦</span><div><h2 id="ai-title">Converse com o código</h2><p id="ai-provider">Uma pergunta. Um caminho mais claro.</p></div><button id="close-ai" class="quiet" aria-label="Fechar diálogo">×</button></div>
+    <div id="ai-setup" class="notice" hidden>Configure <code>OPENAI_API_KEY</code> ou <code>OPENROUTER_API_KEY</code> no terminal e reinicie o servidor. Use <code>RV_AI_MODEL</code> para escolher o modelo.</div>
+    <div id="offline-note" class="notice" hidden>Este HTML funciona offline. Para conversar com IA, execute <code>rust-visualizer serve /caminho/do/repositório</code> com uma chave configurada.</div>
+    <div id="conversation" class="conversation" aria-live="polite"><div class="chat-welcome"><h3>Entenda o porquê de cada caminho.</h3><p>Pergunte sobre a seleção ou sobre o repositório. A resposta pode destacar nós e guiar você pelo grafo.</p><button class="suggestion">Onde o programa começa?</button><button class="suggestion">Explique os caminhos de erro.</button></div></div>
+    <div id="ai-error" role="alert" class="notice error" hidden></div>
+    <div id="ai-loading" class="ai-loading" hidden>Conectando os pontos no código…</div>
+    <form id="ai-form"><label for="question" class="sr-only">Sua pergunta</label><textarea id="question" rows="3" maxlength="4000" placeholder="Como essa parte do programa funciona?"></textarea><div class="composer-footer"><span id="selection-context">Contexto: repositório</span><button id="send-ai" class="primary" type="submit">Enviar ↗</button></div></form>
+    <div class="dialog-footer"><span>Ao enviar, trechos relevantes do código vão ao provedor configurado.</span><button id="clear-chat" class="quiet">Limpar conversa</button></div>
+  </dialog>
+  <!-- GRAPH_DATA -->
+</body>
+</html>
